@@ -1,0 +1,33 @@
+{
+  "meta": {
+    "archivo": "cv_ejemplo.pdf",
+    "modelo": "ollama · qwen2.5:7b",
+    "segundos": 194.3,
+    "fecha": "2026-11-13"
+  },
+  "descripcion_puesto": "Puesto: Desarrollador Python\nRequisitos obligatorios: 3 años de experiencia, Python, APIs REST y PostgreSQL.\nDeseables: Docker, pruebas automatizadas y experiencia con LangChain.\nResponsabilidades: desarrollar servicios, integrar APIs y mantener pruebas.",
+  "analisis": {
+    "nombre_candidato": "Laura Gómez Rojas",
+    "experiencia_años": 4,
+    "habilidades_clave": [
+      "Python",
+      "APIs REST",
+      "PostgreSQL",
+      "Docker",
+      "pruebas automatizadas"
+    ],
+    "education": "Ingeniería de Sistemas — Universidad Nacional de Colombia (2014 – 2019)",
+    "experiencia_relevante": "[Desarrolladora Backend Python — Fintech Andina S.A.S. (Enero 2021 – Actualidad)]",
+    "fortalezas": [
+      "Experiencia en el diseño y desarrollo de APIs REST con FastAPI",
+      "Modelado de bases de datos PostgreSQL y optimización de consultas",
+      "Contenedorización de microservicios con Docker y despliegue con GitHub Actions",
+      "Pruebas automatizadas con pytest (cobertura del 85 %)"
+    ],
+    "areas_mejora": [
+      "Falta experiencia con LangChain",
+      "Falta experiencia con pasarelas de pago y centrales de riesgo (aunque se menciona integración con APIs de terceros)"
+    ],
+    "porcentaje_ajuste": 82
+  }
+}

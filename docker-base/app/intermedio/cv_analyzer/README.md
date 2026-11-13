@@ -20,6 +20,7 @@ Por defecto usa un modelo **local** servido por [Ollama](https://ollama.com) (`q
 - [Cambios respecto al código base](#cambios-respecto-al-código-base)
 - [Limitaciones](#limitaciones)
 - [Resolución de problemas](#resolución-de-problemas)
+- [Enlaces de la aplicación](#enlaces-de-la-aplicación)
 
 ## Funcionalidades
 
@@ -31,15 +32,16 @@ Por defecto usa un modelo **local** servido por [Ollama](https://ollama.com) (`q
 - Recomendación final de contratación según el resultado.
 - Panel lateral con el estado de conexión del modelo, los criterios de evaluación y la escala.
 - Elección del proveedor del modelo (Ollama u OpenAI) mediante variables de entorno.
+- Pestaña **Ejemplo** con un análisis real generado previamente sobre un CV ficticio. Se muestra al instante, sin llamar al modelo, y permite descargar el PDF de ejemplo.
 
-El módulo no usa base de datos ni implementa persistencia o exportación. El botón **Guardar análisis** solo muestra un aviso de funcionalidad en desarrollo.
+El módulo no usa base de datos ni implementa persistencia o exportación. El botón **Guardar Análisis** solo muestra un aviso de funcionalidad en desarrollo.
 
 ## Funcionamiento
 
 1. `app.py` llama a `main()` de la interfaz de Streamlit.
 2. La interfaz lee la configuración del modelo y comprueba la conexión. En el panel lateral muestra *Ollama conectado* o el problema detectado.
 3. El usuario carga un PDF y escribe la descripción del puesto.
-4. Al pulsar **Analizar candidato**, la interfaz comprueba que existan ambas entradas y que el proveedor esté configurado.
+4. Al pulsar **Analizar Candidato**, la interfaz comprueba que existan ambas entradas y que el proveedor esté configurado.
 5. `extraer_texto_pdf()` lee el archivo en memoria con PyPDF2, recorre sus páginas y concatena el texto con un separador por página. Si no hay texto o la lectura falla, devuelve un mensaje de error que la interfaz muestra antes de detener el proceso.
 6. `crear_sistema_prompts()` combina las instrucciones del reclutador con el mensaje que contiene el CV y la descripción del puesto.
 7. `crear_evaluador_cv()` crea el modelo del proveedor configurado con `temperature=0.2` y le aplica `with_structured_output(AnalisisCV, method="json_schema")`, de modo que la respuesta debe ajustarse al esquema Pydantic.
@@ -133,6 +135,9 @@ docker-base/
     ├── app.py                       # Punto de entrada de Streamlit
     ├── .streamlit/
     │   └── config.toml              # Tema visual y opciones de Streamlit
+    ├── ejemplos/
+    │   ├── cv_ejemplo.pdf           # CV ficticio para pruebas y demostraciones
+    │   └── analisis_ejemplo.json    # Resultado real del modelo sobre ese CV
     ├── models/
     │   └── cv_model.py              # Esquema Pydantic AnalisisCV
     ├── prompts/
@@ -141,7 +146,7 @@ docker-base/
     │   ├── pdf_processor.py         # Extracción de texto del PDF
     │   └── cv_evaluator.py          # Configuración del proveedor e invocación del modelo
     └── ui/
-        ├── streamlit_ui.py          # Entradas, validaciones y presentación
+        ├── streamlit_ui.py          # Páginas Analizador y Ejemplo: entradas, validaciones y presentación
         └── styles.py                # Estilos CSS y componentes HTML
 ```
 
@@ -312,9 +317,17 @@ docker compose down
 
 1. Carga un CV en PDF con texto seleccionable (paso 1).
 2. Escribe el puesto, la experiencia requerida, las habilidades obligatorias y deseables y las responsabilidades (paso 2), o pulsa **Usar descripción de ejemplo**.
-3. Pulsa **Analizar candidato** y espera la respuesta del modelo. Con Ollama en CPU puede tardar unos minutos.
+3. Pulsa **Analizar Candidato** y espera la respuesta del modelo. Con Ollama en CPU puede tardar unos minutos.
 4. Revisa el porcentaje de ajuste, el perfil, las habilidades, las fortalezas y las áreas de desarrollo junto con la recomendación final.
 5. Pulsa **Limpiar** para borrar el PDF, la descripción y el resultado.
+
+### CV de ejemplo
+
+La carpeta `ejemplos/` contiene un CV ficticio (`cv_ejemplo.pdf`, candidata *Laura Gómez Rojas*, perfil de desarrolladora backend Python) y el resultado real que generó `qwen2.5:7b` al analizarlo con la descripción de ejemplo: 82 %, *Excelente* y *Candidato recomendado*.
+
+- La pestaña **Ejemplo** muestra ese resultado al instante y permite descargar el PDF. Es útil en una demostración: mientras el análisis en vivo se ejecuta en la pestaña **Analizador**, el resultado ya está disponible en la otra pestaña.
+- Para repetir el análisis en vivo, sube `ejemplos/cv_ejemplo.pdf` en la pestaña **Analizador** y pulsa **Usar descripción de ejemplo**. El porcentaje puede variar unos puntos entre ejecuciones.
+- El resultado guardado no se regenera automáticamente. Si cambias el prompt o el modelo, `analisis_ejemplo.json` reflejará la versión con la que se generó (el modelo y la fecha aparecen en la propia pestaña).
 
 Ejemplo de descripción:
 
@@ -331,7 +344,7 @@ Responsabilidades: desarrollar servicios, integrar APIs y mantener pruebas.
 |---|---|
 | El bloque `except` de `services/cv_evaluator.py` construía `AnalisisCV` con `fotalezas` y `porcetaje_ajuste`; el resultado alternativo fallaba y el error original se perdía. | Se eliminó el análisis alternativo. Ahora se registra el error con `logging` y se lanza `ErrorEvaluacion` con la causa real, que la interfaz muestra junto con una sugerencia según el proveedor. |
 | El botón **Limpiar** solo llamaba a `st.rerun()` y no borraba los campos. | Borra el PDF cargado, la descripción y el último análisis. |
-| El resultado no se conservaba en `st.session_state` y desaparecía con cualquier interacción. | Se guarda en `st.session_state`; pulsar **Guardar análisis** ya no lo borra. |
+| El resultado no se conservaba en `st.session_state` y desaparecía con cualquier interacción. | Se guarda en `st.session_state`; pulsar **Guardar Análisis** ya no lo borra. |
 | Sin clave de OpenAI el error aparecía solo al analizar. | La configuración se valida antes de llamar al modelo y el estado se muestra en el panel lateral. |
 | Solo admitía OpenAI. | Se añadió Ollama como proveedor por defecto, seleccionable con `LLM_PROVIDER`. |
 | El `CMD` del Dockerfile apuntaba a `app/main.py`, que no existe en este proyecto. | El `CMD` arranca directamente este módulo. |
@@ -361,4 +374,26 @@ Responsabilidades: desarrollar servicios, integrar APIs y mantener pruebas.
 | El PDF aparece vacío o no puede procesarse | Usa un PDF con texto seleccionable y verifica que el archivo se abra correctamente. |
 | El contenedor no llega a Ollama | Comprueba que Ollama esté abierto en el anfitrión. En Linux, revisa `--add-host` y `OLLAMA_HOST`. |
 | Compose exige variables de PostgreSQL o pgAdmin | Completa el `.env` a partir de `.env.example` o usa el contenedor independiente. |
+| Compose falla con *port is already allocated* en 5433 o 5050 | Otro contenedor usa ese puerto. Cambia `POSTGRES_PORT` o `PGADMIN_PORT` en el `.env` (por ejemplo, `55433` y `55050`). |
 | El puerto 8501 está ocupado | En local, usa otro `--server.port`; con Docker, cambia el puerto del anfitrión, por ejemplo `-p 8502:8501`. |
+
+## Enlaces de la aplicación
+
+Con la aplicación en ejecución (en local o con Docker), abre estos enlaces en el navegador:
+
+| Página | Enlace | Contenido |
+|---|---|---|
+| Analizador | [http://localhost:8501/](http://localhost:8501/) | Carga de un CV y análisis en vivo con el modelo. |
+| Ejemplo | [http://localhost:8501/ejemplo](http://localhost:8501/ejemplo) | Análisis de ejemplo ya generado y descarga del CV ficticio. |
+
+Solo con Docker Compose (usa el puerto definido en `PGADMIN_PORT` si lo cambiaste):
+
+| Servicio | Enlace |
+|---|---|
+| pgAdmin | [http://localhost:5050/](http://localhost:5050/) |
+
+Servicio local que usa la aplicación:
+
+| Servicio | Enlace | Uso |
+|---|---|---|
+| API de Ollama | [http://localhost:11434/api/tags](http://localhost:11434/api/tags) | Lista los modelos descargados; sirve para comprobar que Ollama está en ejecución. |

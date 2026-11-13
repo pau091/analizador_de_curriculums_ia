@@ -115,8 +115,9 @@ def evaluar_candidato(texto_cv: str, descripcion_puesto: str) -> AnalisisCV:
     """
     config = obtener_configuracion()
     try:
-        cadena = crear_sistema_prompts() | crear_evaluador_cv(config)
-        resultado = cadena.invoke(
+        chat_prompt = crear_sistema_prompts()
+        modelo_estructurado = crear_evaluador_cv(config)
+        resultado = (chat_prompt | modelo_estructurado).invoke(
             {"texto_cv": texto_cv, "descripcion_puesto": descripcion_puesto}
         )
     except Exception as error:

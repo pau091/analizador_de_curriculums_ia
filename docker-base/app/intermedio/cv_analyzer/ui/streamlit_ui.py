@@ -1,6 +1,8 @@
 """Interfaz de Streamlit: entradas, validaciones y presentación del análisis."""
 
+import json
 import time
+from pathlib import Path
 
 import streamlit as st
 
@@ -20,6 +22,8 @@ EJEMPLO_PUESTO = """Puesto: Desarrollador Python
 Requisitos obligatorios: 3 años de experiencia, Python, APIs REST y PostgreSQL.
 Deseables: Docker, pruebas automatizadas y experiencia con LangChain.
 Responsabilidades: desarrollar servicios, integrar APIs y mantener pruebas."""
+
+CARPETA_EJEMPLOS = Path(__file__).resolve().parent.parent / "ejemplos"
 
 VERDE, AZUL, AMBAR, ROJO = "#15803D", "#1D4ED8", "#B45309", "#B91C1C"
 
@@ -166,17 +170,16 @@ def mostrar_analisis(analisis: AnalisisCV, meta: dict) -> None:
         )
 
 
-def main() -> None:
-    st.set_page_config(page_title="Analizador de CV con IA", layout="wide")
-    st.markdown(styles.CSS, unsafe_allow_html=True)
-    _inicializar_estado()
-
+def _configuracion_o_detener() -> ConfiguracionLLM:
     try:
-        config = obtener_configuracion()
+        return obtener_configuracion()
     except ErrorEvaluacion as error:
         st.error(str(error))
         st.stop()
 
+
+def pagina_analizador() -> None:
+    config = _configuracion_o_detener()
     st.markdown(
         styles.hero(
             "Analizador de currículums con IA",
@@ -186,7 +189,6 @@ def main() -> None:
         ),
         unsafe_allow_html=True,
     )
-    mostrar_barra_lateral(config)
 
     col_cv, col_puesto = st.columns(2, gap="medium")
     with col_cv, st.container(border=True):
@@ -212,10 +214,10 @@ def main() -> None:
         st.button("Usar descripción de ejemplo", on_click=_usar_ejemplo, type="tertiary")
 
     col_analizar, col_limpiar, col_guardar = st.columns([2, 1, 1])
-    analizar = col_analizar.button("Analizar candidato", type="primary", width="stretch")
+    analizar = col_analizar.button("Analizar Candidato", type="primary", width="stretch")
     col_limpiar.button("Limpiar", on_click=_limpiar, width="stretch")
     col_guardar.button(
-        "Guardar análisis",
+        "Guardar Análisis",
         on_click=_guardar,
         disabled=st.session_state.analisis is None,
         width="stretch",
@@ -261,8 +263,79 @@ def main() -> None:
                 "segundos": time.perf_counter() - inicio,
             }
             estado.update(label="Análisis completado", state="complete", expanded=False)
-        st.rerun()  # vuelve a dibujar la página para habilitar "Guardar análisis"
+        st.rerun()  # vuelve a dibujar la página para habilitar "Guardar Análisis"
 
     if st.session_state.analisis is not None:
         st.divider()
         mostrar_analisis(st.session_state.analisis, st.session_state.meta)
+
+
+@st.cache_data(show_spinner=False)
+def _cargar_ejemplo() -> tuple[dict, bytes]:
+    """Lee el análisis pregenerado y el PDF del CV de ejemplo."""
+    datos = json.loads((CARPETA_EJEMPLOS / "analisis_ejemplo.json").read_text(encoding="utf-8"))
+    pdf = (CARPETA_EJEMPLOS / "cv_ejemplo.pdf").read_bytes()
+    return datos, pdf
+
+
+def pagina_ejemplo() -> None:
+    """Muestra un análisis real generado previamente, sin llamar al modelo."""
+    try:
+        datos, pdf = _cargar_ejemplo()
+        analisis = AnalisisCV.model_validate(datos["analisis"])
+        meta = datos["meta"]
+    except (OSError, KeyError, ValueError) as error:
+        st.error(f"No se pudo cargar el ejemplo de la carpeta ejemplos/: {error}")
+        st.stop()
+
+    st.markdown(
+        styles.hero(
+            "Ejemplo de análisis",
+            "Resultado real generado previamente sobre un CV ficticio. Se muestra al instante, "
+            "sin volver a llamar al modelo.",
+            ["CV de ejemplo", meta["modelo"], f"Generado el {meta['fecha']}"],
+        ),
+        unsafe_allow_html=True,
+    )
+
+    col_cv, col_puesto = st.columns(2, gap="medium")
+    with col_cv, st.container(border=True):
+        st.markdown(styles.paso(1, "Currículum", "Candidata ficticia creada para la demostración."),
+                    unsafe_allow_html=True)
+        st.download_button(
+            "Descargar CV de ejemplo (PDF)",
+            data=pdf,
+            file_name=meta["archivo"],
+            mime="application/pdf",
+            on_click="ignore",
+            width="stretch",
+        )
+        st.caption("Súbelo en la pestaña Analizador para repetir el análisis en vivo.")
+    with col_puesto, st.container(border=True):
+        st.markdown(styles.paso(2, "Descripción del puesto", "Usada para generar este resultado."),
+                    unsafe_allow_html=True)
+        st.markdown(
+            '<div class="resumen">'
+            + styles.escape(datos["descripcion_puesto"]).replace("\n", "<br>")
+            + "</div>",
+            unsafe_allow_html=True,
+        )
+
+    st.divider()
+    mostrar_analisis(analisis, meta)
+
+
+def main() -> None:
+    st.set_page_config(page_title="Analizador de CV con IA", layout="wide")
+    st.markdown(styles.CSS, unsafe_allow_html=True)
+    _inicializar_estado()
+    mostrar_barra_lateral(_configuracion_o_detener())
+
+    pagina = st.navigation(
+        [
+            st.Page(pagina_analizador, title="Analizador", url_path="analizador", default=True),
+            st.Page(pagina_ejemplo, title="Ejemplo", url_path="ejemplo"),
+        ],
+        position="top",
+    )
+    pagina.run()
